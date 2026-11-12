@@ -124,3 +124,7 @@ Yapılandırma `$XDG_CONFIG_HOME/micctl` altında tutulur (genelde `~/.config/mi
 - `presets/*.json`: hazır profiller
 - `sounds/*.wav`: gömülü seslerin kopyaları
 - `~/.config/systemd/user/micctl.service`: `micctl autostart on` ile oluşturulur
+
+## Lisans
+
+[MIT](LICENSE)
