@@ -1,5 +1,7 @@
 # micctl — PipeWire Mikrofon DSP, Soundboard & FX Yöneticisi
 
+> **Bu proje artık geliştirilmiyor (bakım modu).** micctl, yerine geçen [micforge](https://github.com/Shidori5417/micforge) projesine dönüştürüldü. Yeni özellikler ve düzeltmeler için micforge kullanın.
+
 Arch Linux üzerinde PipeWire ile çalışan mikrofon filtresi, canlı EQ, ses efektleri ve soundboard aracı. CLI ve TUI olarak kullanılır.
 
 [![CI](https://github.com/Shidori5417/micctl/actions/workflows/ci.yml/badge.svg)](https://github.com/Shidori5417/micctl/actions/workflows/ci.yml)
@@ -44,6 +46,7 @@ micctl status            # Durum özeti
 # Canlı EQ
 micctl bass +5.0         # 5 dB artır
 micctl bass set 20       # -20..+30 dB aralığında mutlak değer
+micctl bass set -5       # Mutlak -5 dB (set ile negatif değer de mutlaktır)
 micctl mid +1.5
 micctl treble +2.0
 micctl gain 125%
@@ -72,6 +75,7 @@ micctl test 3
 
 # Mute / PTT / monitör / gürültü engelleme
 micctl mute toggle
+micctl unmute            # Mikrofonu aç
 micctl ptt start | stop
 micctl hold-nuke start | stop
 micctl listen on | off
@@ -85,6 +89,10 @@ micctl default           # micctl_source'u varsayılan mikrofon yap
 micctl autostart on      # systemd user servisi
 micctl waybar            # Waybar JSON
 micctl reset             # Fabrika ayarları
+
+# Filtre servisi
+micctl start             # Filtre servisini başlat
+micctl restart           # Filtre servisini yeniden başlat
 ```
 
 ## TUI kısayolları
