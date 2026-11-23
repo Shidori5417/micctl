@@ -395,7 +395,25 @@ pub fn list_presets() -> Vec<String> {
     names
 }
 
+/// Preset names become file names under `presets/`, so only a conservative
+/// character set is accepted. This rejects path separators and `..`.
+pub fn validate_preset_name(name: &str) -> Result<(), String> {
+    let valid = !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if valid {
+        Ok(())
+    } else {
+        Err(format!(
+            "Geçersiz profil adı '{}': yalnızca harf, rakam, '_' ve '-' kullanılabilir",
+            name
+        ))
+    }
+}
+
 pub fn load_preset(name: &str) -> Result<Preset, String> {
+    validate_preset_name(name)?;
     let _ = ensure_dirs();
     let path = get_presets_dir().join(format!("{}.json", name));
     if !path.exists() {
@@ -406,6 +424,8 @@ pub fn load_preset(name: &str) -> Result<Preset, String> {
 }
 
 pub fn save_preset(name: &str, state: &State) -> std::io::Result<()> {
+    validate_preset_name(name)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
     ensure_dirs()?;
     let path = get_presets_dir().join(format!("{}.json", name));
     let preset = Preset {
@@ -419,4 +439,41 @@ pub fn save_preset(name: &str, state: &State) -> std::io::Result<()> {
     };
     let json_bytes = serde_json::to_vec_pretty(&preset).map_err(std::io::Error::other)?;
     fs::write(path, json_bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{load_preset, save_preset, validate_preset_name, State};
+
+    #[test]
+    fn accepts_safe_preset_names() {
+        for name in ["podcast", "deep-bass", "my_profile_2", "ASMR"] {
+            assert!(validate_preset_name(name).is_ok(), "{name} should be valid");
+        }
+    }
+
+    #[test]
+    fn rejects_unsafe_preset_names() {
+        for name in [
+            "",
+            "../x",
+            "a/b",
+            "/etc/passwd",
+            "..",
+            "x.json",
+            "a b",
+            "özel",
+        ] {
+            assert!(
+                validate_preset_name(name).is_err(),
+                "{name:?} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn unsafe_names_never_touch_the_filesystem() {
+        assert!(load_preset("../x").is_err());
+        assert!(save_preset("../x", &State::default()).is_err());
+    }
 }
