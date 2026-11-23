@@ -1,18 +1,40 @@
+use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 
-fn default_true() -> bool { true }
-fn default_false() -> bool { false }
-fn default_bass() -> f64 { 3.0 }
-fn default_bass_freq() -> f64 { 120.0 }
-fn default_mid() -> f64 { 0.0 }
-fn default_mid_freq() -> f64 { 1800.0 }
-fn default_treble() -> f64 { 1.5 }
-fn default_treble_freq() -> f64 { 6000.0 }
-fn default_gain() -> u32 { 100 }
-fn default_preset() -> String { "default".to_string() }
-fn default_fx() -> String { "none".to_string() }
+fn default_true() -> bool {
+    true
+}
+fn default_false() -> bool {
+    false
+}
+fn default_bass() -> f64 {
+    3.0
+}
+fn default_bass_freq() -> f64 {
+    120.0
+}
+fn default_mid() -> f64 {
+    0.0
+}
+fn default_mid_freq() -> f64 {
+    1800.0
+}
+fn default_treble() -> f64 {
+    1.5
+}
+fn default_treble_freq() -> f64 {
+    6000.0
+}
+fn default_gain() -> u32 {
+    100
+}
+fn default_preset() -> String {
+    "default".to_string()
+}
+fn default_fx() -> String {
+    "none".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateBackup {
@@ -132,7 +154,11 @@ pub fn get_playback_pid_file() -> PathBuf {
 
 pub fn get_systemd_service_file() -> PathBuf {
     if let Some(user_dirs) = directories::BaseDirs::new() {
-        user_dirs.config_dir().join("systemd").join("user").join("micctl.service")
+        user_dirs
+            .config_dir()
+            .join("systemd")
+            .join("user")
+            .join("micctl.service")
     } else {
         PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string()))
             .join(".config")
@@ -156,18 +182,150 @@ pub fn ensure_dirs() -> std::io::Result<()> {
 
     // Default presets
     let builtin: [(&str, Preset); 12] = [
-        ("podcast", Preset { bass: 5.0, mid: 1.5, treble: 2.5, lowcut: true, noise_suppression: false, gain: 100, fx_mode: "none".into() }),
-        ("gaming", Preset { bass: 2.0, mid: 2.5, treble: 3.0, lowcut: true, noise_suppression: true, gain: 100, fx_mode: "none".into() }),
-        ("natural", Preset { bass: 0.0, mid: 0.0, treble: 0.0, lowcut: true, noise_suppression: false, gain: 100, fx_mode: "none".into() }),
-        ("deep-bass", Preset { bass: 12.0, mid: -1.0, treble: 1.0, lowcut: true, noise_suppression: false, gain: 105, fx_mode: "none".into() }),
-        ("extreme-bass", Preset { bass: 24.0, mid: -2.0, treble: 0.0, lowcut: false, noise_suppression: false, gain: 120, fx_mode: "none".into() }),
-        ("nuke", Preset { bass: 18.0, mid: 10.0, treble: 6.0, lowcut: false, noise_suppression: false, gain: 150, fx_mode: "nuke".into() }),
-        ("ultra-nuke", Preset { bass: 30.0, mid: 15.0, treble: 10.0, lowcut: false, noise_suppression: false, gain: 200, fx_mode: "ultra_nuke".into() }),
-        ("robot", Preset { bass: 0.0, mid: 12.0, treble: -4.0, lowcut: true, noise_suppression: false, gain: 115, fx_mode: "robot".into() }),
-        ("rabbit", Preset { bass: -18.0, mid: 8.0, treble: 16.0, lowcut: true, noise_suppression: false, gain: 130, fx_mode: "rabbit".into() }),
-        ("demon", Preset { bass: 22.0, mid: -6.0, treble: -14.0, lowcut: false, noise_suppression: false, gain: 125, fx_mode: "demon".into() }),
-        ("walkie-talkie", Preset { bass: -12.0, mid: 9.0, treble: -8.0, lowcut: true, noise_suppression: false, gain: 115, fx_mode: "walkie_talkie".into() }),
-        ("asmr", Preset { bass: 4.0, mid: 1.0, treble: 8.5, lowcut: true, noise_suppression: false, gain: 135, fx_mode: "none".into() }),
+        (
+            "podcast",
+            Preset {
+                bass: 5.0,
+                mid: 1.5,
+                treble: 2.5,
+                lowcut: true,
+                noise_suppression: false,
+                gain: 100,
+                fx_mode: "none".into(),
+            },
+        ),
+        (
+            "gaming",
+            Preset {
+                bass: 2.0,
+                mid: 2.5,
+                treble: 3.0,
+                lowcut: true,
+                noise_suppression: true,
+                gain: 100,
+                fx_mode: "none".into(),
+            },
+        ),
+        (
+            "natural",
+            Preset {
+                bass: 0.0,
+                mid: 0.0,
+                treble: 0.0,
+                lowcut: true,
+                noise_suppression: false,
+                gain: 100,
+                fx_mode: "none".into(),
+            },
+        ),
+        (
+            "deep-bass",
+            Preset {
+                bass: 12.0,
+                mid: -1.0,
+                treble: 1.0,
+                lowcut: true,
+                noise_suppression: false,
+                gain: 105,
+                fx_mode: "none".into(),
+            },
+        ),
+        (
+            "extreme-bass",
+            Preset {
+                bass: 24.0,
+                mid: -2.0,
+                treble: 0.0,
+                lowcut: false,
+                noise_suppression: false,
+                gain: 120,
+                fx_mode: "none".into(),
+            },
+        ),
+        (
+            "nuke",
+            Preset {
+                bass: 18.0,
+                mid: 10.0,
+                treble: 6.0,
+                lowcut: false,
+                noise_suppression: false,
+                gain: 150,
+                fx_mode: "nuke".into(),
+            },
+        ),
+        (
+            "ultra-nuke",
+            Preset {
+                bass: 30.0,
+                mid: 15.0,
+                treble: 10.0,
+                lowcut: false,
+                noise_suppression: false,
+                gain: 200,
+                fx_mode: "ultra_nuke".into(),
+            },
+        ),
+        (
+            "robot",
+            Preset {
+                bass: 0.0,
+                mid: 12.0,
+                treble: -4.0,
+                lowcut: true,
+                noise_suppression: false,
+                gain: 115,
+                fx_mode: "robot".into(),
+            },
+        ),
+        (
+            "rabbit",
+            Preset {
+                bass: -18.0,
+                mid: 8.0,
+                treble: 16.0,
+                lowcut: true,
+                noise_suppression: false,
+                gain: 130,
+                fx_mode: "rabbit".into(),
+            },
+        ),
+        (
+            "demon",
+            Preset {
+                bass: 22.0,
+                mid: -6.0,
+                treble: -14.0,
+                lowcut: false,
+                noise_suppression: false,
+                gain: 125,
+                fx_mode: "demon".into(),
+            },
+        ),
+        (
+            "walkie-talkie",
+            Preset {
+                bass: -12.0,
+                mid: 9.0,
+                treble: -8.0,
+                lowcut: true,
+                noise_suppression: false,
+                gain: 115,
+                fx_mode: "walkie_talkie".into(),
+            },
+        ),
+        (
+            "asmr",
+            Preset {
+                bass: 4.0,
+                mid: 1.0,
+                treble: 8.5,
+                lowcut: true,
+                noise_suppression: false,
+                gain: 135,
+                fx_mode: "none".into(),
+            },
+        ),
     ];
 
     for (name, preset) in builtin {
@@ -208,8 +366,7 @@ pub fn load_state() -> State {
 pub fn save_state(state: &State) -> std::io::Result<()> {
     ensure_dirs()?;
     let path = get_config_file();
-    let json_bytes = serde_json::to_vec_pretty(state)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let json_bytes = serde_json::to_vec_pretty(state).map_err(std::io::Error::other)?;
     fs::write(path, json_bytes)
 }
 
@@ -260,7 +417,6 @@ pub fn save_preset(name: &str, state: &State) -> std::io::Result<()> {
         gain: state.gain,
         fx_mode: state.fx_mode.clone(),
     };
-    let json_bytes = serde_json::to_vec_pretty(&preset)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let json_bytes = serde_json::to_vec_pretty(&preset).map_err(std::io::Error::other)?;
     fs::write(path, json_bytes)
 }
