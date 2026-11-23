@@ -1,6 +1,6 @@
+use crate::state::get_sounds_dir;
 use std::fs;
 use std::path::PathBuf;
-use crate::state::get_sounds_dir;
 
 pub const AIRHORN_WAV: &[u8] = include_bytes!("../sounds/airhorn.wav");
 pub const BEEP_WAV: &[u8] = include_bytes!("../sounds/beep.wav");
@@ -37,7 +37,9 @@ pub fn get_sound_path(name: &str) -> Option<PathBuf> {
     let s_dir = get_sounds_dir();
     match name.to_lowercase().as_str() {
         "roger" | "roger_beep" | "roger-beep" | "radio" => Some(s_dir.join("roger_beep.wav")),
-        "nuke" | "nuke_alarm" | "nuke-alarm" | "alarm" | "siren" => Some(s_dir.join("nuke_alarm.wav")),
+        "nuke" | "nuke_alarm" | "nuke-alarm" | "alarm" | "siren" => {
+            Some(s_dir.join("nuke_alarm.wav"))
+        }
         "airhorn" | "horn" | "korna" => Some(s_dir.join("airhorn.wav")),
         "beep" | "bip" => Some(s_dir.join("beep.wav")),
         _ => None,

@@ -12,7 +12,7 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Alignment},
+    layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
@@ -115,69 +115,130 @@ pub fn run_tui() {
                 .split(size);
 
             // 1. Header
-            let mut header_spans = vec![
-                Span::styled("🎙️ micctl  ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            ];
+            let mut header_spans = vec![Span::styled(
+                "🎙️ micctl  ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )];
 
             if is_running {
-                header_spans.push(Span::styled("● AKTİF ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)));
+                header_spans.push(Span::styled(
+                    "● AKTİF ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ));
             } else {
-                header_spans.push(Span::styled("○ DURDURULDU ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+                header_spans.push(Span::styled(
+                    "○ DURDURULDU ",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ));
             }
 
             if is_muted {
-                header_spans.push(Span::styled("[ ● SUSTURULDU ] ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+                header_spans.push(Span::styled(
+                    "[ ● SUSTURULDU ] ",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ));
             } else {
-                header_spans.push(Span::styled("[ ○ Açık ] ", Style::default().fg(Color::Green)));
+                header_spans.push(Span::styled(
+                    "[ ○ Açık ] ",
+                    Style::default().fg(Color::Green),
+                ));
             }
 
             if is_default {
-                header_spans.push(Span::styled("[ ✓ Varsayılan ] ", Style::default().fg(Color::Blue)));
+                header_spans.push(Span::styled(
+                    "[ ✓ Varsayılan ] ",
+                    Style::default().fg(Color::Blue),
+                ));
             }
 
             match fx.as_str() {
                 "ultra_nuke" => {
                     header_spans.push(Span::styled(
                         "💥💥 ULTRA NUKE (KIYAMET) 💥💥 ",
-                        Style::default().fg(Color::White).bg(Color::Red).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::White)
+                            .bg(Color::Red)
+                            .add_modifier(Modifier::BOLD),
                     ));
                 }
                 "nuke" => {
                     header_spans.push(Span::styled(
                         "💥 NUKE AKTİF 💥 ",
-                        Style::default().fg(Color::White).bg(Color::Red).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(Color::White)
+                            .bg(Color::Red)
+                            .add_modifier(Modifier::BOLD),
                     ));
                 }
                 "robot" => {
-                    header_spans.push(Span::styled("🤖 ROBOT SESİ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+                    header_spans.push(Span::styled(
+                        "🤖 ROBOT SESİ ",
+                        Style::default()
+                            .fg(Color::Cyan)
+                            .add_modifier(Modifier::BOLD),
+                    ));
                 }
                 "rabbit" => {
-                    header_spans.push(Span::styled("🐰 TAVŞAN / HELYUM ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+                    header_spans.push(Span::styled(
+                        "🐰 TAVŞAN / HELYUM ",
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    ));
                 }
                 "demon" => {
-                    header_spans.push(Span::styled("👹 CANAVAR / DEMON ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+                    header_spans.push(Span::styled(
+                        "👹 CANAVAR / DEMON ",
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    ));
                 }
                 "walkie_talkie" => {
-                    header_spans.push(Span::styled("📻 TELSİZ / MEGAFON ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+                    header_spans.push(Span::styled(
+                        "📻 TELSİZ / MEGAFON ",
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    ));
                 }
                 "telephone" => {
-                    header_spans.push(Span::styled("☎️ ESKİ TELEFON ", Style::default().fg(Color::Yellow)));
+                    header_spans.push(Span::styled(
+                        "☎️ ESKİ TELEFON ",
+                        Style::default().fg(Color::Yellow),
+                    ));
                 }
                 _ => {}
             }
 
             if is_playing {
-                header_spans.push(Span::styled("🔊 Ses Çalınıyor... ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)));
+                header_spans.push(Span::styled(
+                    "🔊 Ses Çalınıyor... ",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ));
             } else if is_mon {
-                header_spans.push(Span::styled("● Dinleme Açık ", Style::default().fg(Color::Yellow)));
+                header_spans.push(Span::styled(
+                    "● Dinleme Açık ",
+                    Style::default().fg(Color::Yellow),
+                ));
             }
 
             if test_recording.load(Ordering::Relaxed) {
-                header_spans.push(Span::styled("● TEST KAYDEDİLİYOR... ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+                header_spans.push(Span::styled(
+                    "● TEST KAYDEDİLİYOR... ",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ));
             }
 
-            let header = Paragraph::new(Line::from(header_spans))
-                .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+            let header = Paragraph::new(Line::from(header_spans)).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            );
             f.render_widget(header, chunks[0]);
 
             // 2. Menu Content
@@ -186,7 +247,10 @@ pub fn run_tui() {
                 let is_sel = idx == selected;
                 let prefix = if is_sel { " ❯ " } else { "   " };
                 let base_style = if is_sel {
-                    Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::White)
                 };
@@ -205,7 +269,11 @@ pub fn run_tui() {
                             "telephone" => "☎️ Eski Telefon",
                             other => other,
                         };
-                        format!("{:<28} ◀  {:<26} ▶", format!("{}{}", prefix, item_name), fx_label)
+                        format!(
+                            "{:<28} ◀  {:<26} ▶",
+                            format!("{}{}", prefix, item_name),
+                            fx_label
+                        )
                     }
                     1 => {
                         // Soundboard
@@ -219,27 +287,55 @@ pub fn run_tui() {
                     2 => {
                         // Bass
                         let slider = make_slider(st.bass, -20.0, 30.0, 22);
-                        format!("{:<28} {}  {:>+5.1} dB", format!("{}{}", prefix, item_name), slider, st.bass)
+                        format!(
+                            "{:<28} {}  {:>+5.1} dB",
+                            format!("{}{}", prefix, item_name),
+                            slider,
+                            st.bass
+                        )
                     }
                     3 => {
                         // Mid
                         let slider = make_slider(st.mid, -18.0, 20.0, 22);
-                        format!("{:<28} {}  {:>+5.1} dB", format!("{}{}", prefix, item_name), slider, st.mid)
+                        format!(
+                            "{:<28} {}  {:>+5.1} dB",
+                            format!("{}{}", prefix, item_name),
+                            slider,
+                            st.mid
+                        )
                     }
                     4 => {
                         // Treble
                         let slider = make_slider(st.treble, -18.0, 20.0, 22);
-                        format!("{:<28} {}  {:>+5.1} dB", format!("{}{}", prefix, item_name), slider, st.treble)
+                        format!(
+                            "{:<28} {}  {:>+5.1} dB",
+                            format!("{}{}", prefix, item_name),
+                            slider,
+                            st.treble
+                        )
                     }
                     5 => {
                         // Gain
                         let slider = make_slider(st.gain as f64, 0.0, 200.0, 22);
-                        format!("{:<28} {}  {:>5} %", format!("{}{}", prefix, item_name), slider, st.gain)
+                        format!(
+                            "{:<28} {}  {:>5} %",
+                            format!("{}{}", prefix, item_name),
+                            slider,
+                            st.gain
+                        )
                     }
                     6 => {
                         // Lowcut
-                        let val_str = if st.lowcut { "[ Açık (80 Hz Low-cut) ]" } else { "[ Kapalı ]" };
-                        format!("{:<28} ◀  {:<26} ▶", format!("{}{}", prefix, item_name), val_str)
+                        let val_str = if st.lowcut {
+                            "[ Açık (80 Hz Low-cut) ]"
+                        } else {
+                            "[ Kapalı ]"
+                        };
+                        format!(
+                            "{:<28} ◀  {:<26} ▶",
+                            format!("{}{}", prefix, item_name),
+                            val_str
+                        )
                     }
                     7 => {
                         // Noise suppression
@@ -250,25 +346,53 @@ pub fn run_tui() {
                         } else {
                             "[ Kapalı ]"
                         };
-                        format!("{:<28} ◀  {:<26} ▶", format!("{}{}", prefix, item_name), val_str)
+                        format!(
+                            "{:<28} ◀  {:<26} ▶",
+                            format!("{}{}", prefix, item_name),
+                            val_str
+                        )
                     }
                     8 => {
                         // Listen
-                        let val_str = if is_mon { "[ Açık (Kulaklıktan Dinleniyor) ]" } else { "[ Kapalı ]" };
-                        format!("{:<28} ◀  {:<26} ▶", format!("{}{}", prefix, item_name), val_str)
+                        let val_str = if is_mon {
+                            "[ Açık (Kulaklıktan Dinleniyor) ]"
+                        } else {
+                            "[ Kapalı ]"
+                        };
+                        format!(
+                            "{:<28} ◀  {:<26} ▶",
+                            format!("{}{}", prefix, item_name),
+                            val_str
+                        )
                     }
                     9 => {
                         // Mute
-                        let val_str = if is_muted { "[ ● SUSTURULDU ]" } else { "[ ○ Açık (Unmuted) ]" };
-                        format!("{:<28} ◀  {:<26} ▶", format!("{}{}", prefix, item_name), val_str)
+                        let val_str = if is_muted {
+                            "[ ● SUSTURULDU ]"
+                        } else {
+                            "[ ○ Açık (Unmuted) ]"
+                        };
+                        format!(
+                            "{:<28} ◀  {:<26} ▶",
+                            format!("{}{}", prefix, item_name),
+                            val_str
+                        )
                     }
                     10 => {
                         // Preset
-                        format!("{:<28} ◀  {:<26} ▶", format!("{}{}", prefix, item_name), st.preset)
+                        format!(
+                            "{:<28} ◀  {:<26} ▶",
+                            format!("{}{}", prefix, item_name),
+                            st.preset
+                        )
                     }
                     11 => {
                         // Daemon
-                        let val_str = if is_running { "[ Aktif - Yeniden Başlatmak için Enter ]" } else { "[ Durduruldu - Başlatmak için Enter ]" };
+                        let val_str = if is_running {
+                            "[ Aktif - Yeniden Başlatmak için Enter ]"
+                        } else {
+                            "[ Durduruldu - Başlatmak için Enter ]"
+                        };
                         format!("{:<28} {}", format!("{}{}", prefix, item_name), val_str)
                     }
                     _ => String::new(),
@@ -277,14 +401,21 @@ pub fn run_tui() {
                 menu_lines.push(Line::from(vec![Span::styled(line, base_style)]));
             }
 
-            let title_text = if !status_msg.is_empty() && status_msg_time.elapsed() < Duration::from_millis(2500) {
+            let title_text = if !status_msg.is_empty()
+                && status_msg_time.elapsed() < Duration::from_millis(2500)
+            {
                 format!(" micctl Kontrol Paneli  —  {} ", status_msg)
             } else {
                 " micctl Kontrol Paneli (Sıfır Gecikmeli Canlı DSP) ".to_string()
             };
 
             let menu_block = Block::default()
-                .title(Span::styled(title_text, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)))
+                .title(Span::styled(
+                    title_text,
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ))
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::DarkGray));
 
@@ -293,33 +424,88 @@ pub fn run_tui() {
 
             // 3. Footer Hotkey Help
             let help_spans = vec![
-                Span::styled("[↑/↓]:", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[↑/↓]:",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Gezin "),
-                Span::styled("[←/→]:", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[←/→]:",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Değiştir "),
-                Span::styled("[1-4]:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[1-4]:",
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("SFX "),
-                Span::styled("[S]:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[S]:",
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Durdur "),
-                Span::styled("[N]:", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[N]:",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Nuke "),
-                Span::styled("[U]:", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[U]:",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Ultra "),
-                Span::styled("[X]:", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[X]:",
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Mute "),
-                Span::styled("[T]:", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[T]:",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Test "),
-                Span::styled("[R]:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[R]:",
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Reset "),
-                Span::styled("[D]:", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[D]:",
+                    Style::default()
+                        .fg(Color::Blue)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Varsayılan "),
-                Span::styled("[Q]:", Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "[Q]:",
+                    Style::default()
+                        .fg(Color::DarkGray)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw("Çıkış"),
             ];
 
             let footer = Paragraph::new(Line::from(help_spans))
                 .alignment(Alignment::Center)
-                .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(Color::DarkGray)),
+                );
             f.render_widget(footer, chunks[2]);
         });
 
@@ -358,8 +544,13 @@ pub fn run_tui() {
                             match selected {
                                 0 => {
                                     // FX mode prev
-                                    let curr_idx = fx_list.iter().position(|&x| x == st.fx_mode).unwrap_or(0);
-                                    let next_idx = if curr_idx > 0 { curr_idx - 1 } else { fx_list.len() - 1 };
+                                    let curr_idx =
+                                        fx_list.iter().position(|&x| x == st.fx_mode).unwrap_or(0);
+                                    let next_idx = if curr_idx > 0 {
+                                        curr_idx - 1
+                                    } else {
+                                        fx_list.len() - 1
+                                    };
                                     st.fx_mode = fx_list[next_idx].to_string();
                                     pending_save = true;
                                     last_save_time = Instant::now();
@@ -449,8 +640,13 @@ pub fn run_tui() {
                                 }
                                 10 => {
                                     // Preset prev
-                                    let curr_idx = presets.iter().position(|p| p == &st.preset).unwrap_or(0);
-                                    let next_idx = if curr_idx > 0 { curr_idx - 1 } else { presets.len() - 1 };
+                                    let curr_idx =
+                                        presets.iter().position(|p| p == &st.preset).unwrap_or(0);
+                                    let next_idx = if curr_idx > 0 {
+                                        curr_idx - 1
+                                    } else {
+                                        presets.len() - 1
+                                    };
                                     let next_name = &presets[next_idx];
                                     if let Ok(p_data) = state::load_preset(next_name) {
                                         st.bass = p_data.bass;
@@ -477,7 +673,8 @@ pub fn run_tui() {
                             match selected {
                                 0 => {
                                     // FX mode next
-                                    let curr_idx = fx_list.iter().position(|&x| x == st.fx_mode).unwrap_or(0);
+                                    let curr_idx =
+                                        fx_list.iter().position(|&x| x == st.fx_mode).unwrap_or(0);
                                     let next_idx = (curr_idx + 1) % fx_list.len();
                                     st.fx_mode = fx_list[next_idx].to_string();
                                     pending_save = true;
@@ -568,7 +765,8 @@ pub fn run_tui() {
                                 }
                                 10 => {
                                     // Preset next
-                                    let curr_idx = presets.iter().position(|p| p == &st.preset).unwrap_or(0);
+                                    let curr_idx =
+                                        presets.iter().position(|p| p == &st.preset).unwrap_or(0);
                                     let next_idx = (curr_idx + 1) % presets.len();
                                     let next_name = &presets[next_idx];
                                     if let Ok(p_data) = state::load_preset(next_name) {
@@ -592,52 +790,50 @@ pub fn run_tui() {
                                 _ => {}
                             }
                         }
-                        KeyCode::Enter => {
-                            match selected {
-                                6 => {
-                                    st.lowcut = !st.lowcut;
+                        KeyCode::Enter => match selected {
+                            6 => {
+                                st.lowcut = !st.lowcut;
+                                pending_save = true;
+                                last_save_time = Instant::now();
+                                if dsp::is_daemon_running() {
+                                    dsp::restart_daemon(&st);
+                                }
+                            }
+                            7 => {
+                                if rnnoise_installed {
+                                    st.noise_suppression = !st.noise_suppression;
                                     pending_save = true;
                                     last_save_time = Instant::now();
                                     if dsp::is_daemon_running() {
                                         dsp::restart_daemon(&st);
                                     }
                                 }
-                                7 => {
-                                    if rnnoise_installed {
-                                        st.noise_suppression = !st.noise_suppression;
-                                        pending_save = true;
-                                        last_save_time = Instant::now();
-                                        if dsp::is_daemon_running() {
-                                            dsp::restart_daemon(&st);
-                                        }
-                                    }
-                                }
-                                8 => {
-                                    if is_mon {
-                                        dsp::stop_monitoring();
-                                    } else {
-                                        if !dsp::is_daemon_running() {
-                                            dsp::start_daemon(&st);
-                                        }
-                                        dsp::start_monitoring();
-                                    }
-                                }
-                                9 => {
-                                    dsp::set_mute(None);
-                                }
-                                11 => {
-                                    if is_running {
-                                        dsp::restart_daemon(&st);
-                                        status_msg = "Motor yeniden başlatıldı".into();
-                                    } else {
-                                        dsp::start_daemon(&st);
-                                        status_msg = "Motor başlatıldı".into();
-                                    }
-                                    status_msg_time = Instant::now();
-                                }
-                                _ => {}
                             }
-                        }
+                            8 => {
+                                if is_mon {
+                                    dsp::stop_monitoring();
+                                } else {
+                                    if !dsp::is_daemon_running() {
+                                        dsp::start_daemon(&st);
+                                    }
+                                    dsp::start_monitoring();
+                                }
+                            }
+                            9 => {
+                                dsp::set_mute(None);
+                            }
+                            11 => {
+                                if is_running {
+                                    dsp::restart_daemon(&st);
+                                    status_msg = "Motor yeniden başlatıldı".into();
+                                } else {
+                                    dsp::start_daemon(&st);
+                                    status_msg = "Motor başlatıldı".into();
+                                }
+                                status_msg_time = Instant::now();
+                            }
+                            _ => {}
+                        },
                         KeyCode::Char('1') => {
                             dsp::play_sfx("roger");
                             status_msg = "📯 Roger SFX Çalındı".into();
@@ -665,12 +861,20 @@ pub fn run_tui() {
                         }
                         KeyCode::Char('n') | KeyCode::Char('N') => {
                             crate::cli::handle_nuke_toggle(&mut st, false);
-                            status_msg = if st.fx_mode == "nuke" { "💥 Nuke Modu Açıldı!".into() } else { "Normal moda dönüldü".into() };
+                            status_msg = if st.fx_mode == "nuke" {
+                                "💥 Nuke Modu Açıldı!".into()
+                            } else {
+                                "Normal moda dönüldü".into()
+                            };
                             status_msg_time = Instant::now();
                         }
                         KeyCode::Char('u') | KeyCode::Char('U') => {
                             crate::cli::handle_nuke_toggle(&mut st, true);
-                            status_msg = if st.fx_mode == "ultra_nuke" { "💥💥 Ultra Nuke Açıldı!".into() } else { "Normal moda dönüldü".into() };
+                            status_msg = if st.fx_mode == "ultra_nuke" {
+                                "💥💥 Ultra Nuke Açıldı!".into()
+                            } else {
+                                "Normal moda dönüldü".into()
+                            };
                             status_msg_time = Instant::now();
                         }
                         KeyCode::Char('r') | KeyCode::Char('R') => {
@@ -686,7 +890,11 @@ pub fn run_tui() {
                         }
                         KeyCode::Char('x') | KeyCode::Char('X') => {
                             let muted = dsp::set_mute(None);
-                            status_msg = if muted { "● Mikrofon Susturuldu".into() } else { "○ Mikrofon Açıldı".into() };
+                            status_msg = if muted {
+                                "● Mikrofon Susturuldu".into()
+                            } else {
+                                "○ Mikrofon Açıldı".into()
+                            };
                             status_msg_time = Instant::now();
                         }
                         KeyCode::Char('l') | KeyCode::Char('L') => {
@@ -713,32 +921,32 @@ pub fn run_tui() {
                             }
                             status_msg_time = Instant::now();
                         }
-                        KeyCode::Char('t') | KeyCode::Char('T') => {
-                            if !test_recording.load(Ordering::Relaxed) {
-                                test_recording.store(true, Ordering::Relaxed);
-                                let flag = Arc::clone(&test_recording);
-                                thread::spawn(move || {
-                                    let test_wav = "/tmp/micctl_test_sample.wav";
-                                    let rec = Command::new("pw-record")
-                                        .args(["--target", "micctl_source", test_wav])
-                                        .stdout(Stdio::null())
-                                        .stderr(Stdio::null())
-                                        .spawn();
-                                    thread::sleep(Duration::from_secs(2));
-                                    if let Ok(mut p) = rec {
-                                        let _ = p.kill();
-                                        let _ = p.wait();
-                                    }
-                                    flag.store(false, Ordering::Relaxed);
-                                    let _ = Command::new("pw-play")
-                                        .arg(test_wav)
-                                        .stdout(Stdio::null())
-                                        .stderr(Stdio::null())
-                                        .status();
-                                });
-                                status_msg = "🎙️ 2 sn ses kaydı alınıyor...".into();
-                                status_msg_time = Instant::now();
-                            }
+                        KeyCode::Char('t') | KeyCode::Char('T')
+                            if !test_recording.load(Ordering::Relaxed) =>
+                        {
+                            test_recording.store(true, Ordering::Relaxed);
+                            let flag = Arc::clone(&test_recording);
+                            thread::spawn(move || {
+                                let test_wav = "/tmp/micctl_test_sample.wav";
+                                let rec = Command::new("pw-record")
+                                    .args(["--target", "micctl_source", test_wav])
+                                    .stdout(Stdio::null())
+                                    .stderr(Stdio::null())
+                                    .spawn();
+                                thread::sleep(Duration::from_secs(2));
+                                if let Ok(mut p) = rec {
+                                    let _ = p.kill();
+                                    let _ = p.wait();
+                                }
+                                flag.store(false, Ordering::Relaxed);
+                                let _ = Command::new("pw-play")
+                                    .arg(test_wav)
+                                    .stdout(Stdio::null())
+                                    .stderr(Stdio::null())
+                                    .status();
+                            });
+                            status_msg = "🎙️ 2 sn ses kaydı alınıyor...".into();
+                            status_msg_time = Instant::now();
                         }
                         _ => {}
                     }

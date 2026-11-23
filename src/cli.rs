@@ -1,8 +1,8 @@
+use colored::*;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
-use colored::*;
 
 use crate::dsp;
 use crate::state::{self, State, StateBackup};
@@ -10,7 +10,8 @@ use crate::state::{self, State, StateBackup};
 pub fn parse_num_arg(curr: f64, args: &[String], min_v: f64, max_v: f64) -> f64 {
     let mut tokens: Vec<String> = Vec::new();
     for a in args {
-        let clean = a.to_lowercase()
+        let clean = a
+            .to_lowercase()
             .replace("set", "")
             .replace("db", "")
             .replace('%', "")
@@ -27,13 +28,16 @@ pub fn parse_num_arg(curr: f64, args: &[String], min_v: f64, max_v: f64) -> f64 
 
     let raw = &tokens[tokens.len() - 1];
     let val = if raw.starts_with('+') {
-        if let Ok(num) = raw[1..].parse::<f64>() {
+        if let Some(Ok(num)) = raw.strip_prefix('+').map(str::parse::<f64>) {
             curr + num
         } else {
             curr
         }
-    } else if raw.starts_with('-') && args[args.len() - 1].starts_with('-') && !args[args.len() - 1].to_lowercase().contains("set") {
-        if let Ok(num) = raw[1..].parse::<f64>() {
+    } else if raw.starts_with('-')
+        && args[args.len() - 1].starts_with('-')
+        && !args[args.len() - 1].to_lowercase().contains("set")
+    {
+        if let Some(Ok(num)) = raw.strip_prefix('-').map(str::parse::<f64>) {
             curr - num
         } else {
             curr
@@ -59,7 +63,12 @@ pub fn print_status(st: &State) {
     let is_playing = dsp::is_audio_playing();
     let fx = st.fx_mode.as_str();
 
-    println!("\n{}", "🎙️  micctl — Mikrofon DSP & Soundboard Durumu".bold().cyan());
+    println!(
+        "\n{}",
+        "🎙️  micctl — Mikrofon DSP & Soundboard Durumu"
+            .bold()
+            .cyan()
+    );
     println!("{}", "═".repeat(65).dimmed());
 
     let motor_str = if is_running {
@@ -77,28 +86,50 @@ pub fn print_status(st: &State) {
     println!("  {:<24} : {}", "Mikrofon Durumu".dimmed(), mute_str);
 
     let def_str = if is_default {
-        "✓ micctl (Sanal Mikrofon - Sistem Geneli)".green().to_string()
+        "✓ micctl (Sanal Mikrofon - Sistem Geneli)"
+            .green()
+            .to_string()
     } else {
-        format!("⚠ {} ('micctl default' ile seç)", default_src).yellow().to_string()
+        format!("⚠ {} ('micctl default' ile seç)", default_src)
+            .yellow()
+            .to_string()
     };
     println!("  {:<24} : {}", "Varsayılan Mikrofon".dimmed(), def_str);
 
     let fx_str = match fx {
-        "ultra_nuke" => "💥💥 ULTRA NUKE / KIYAMET (+50dB Bas)".red().bold().blink().to_string(),
+        "ultra_nuke" => "💥💥 ULTRA NUKE / KIYAMET (+50dB Bas)"
+            .red()
+            .bold()
+            .blink()
+            .to_string(),
         "nuke" => "💥 NUKE / KULAK PATLATAN (AKTİF)".red().bold().to_string(),
-        "robot" => "🤖 Metalik Robot (Cybernetic Dalek)".cyan().bold().to_string(),
+        "robot" => "🤖 Metalik Robot (Cybernetic Dalek)"
+            .cyan()
+            .bold()
+            .to_string(),
         "rabbit" => "🐰 Tavşan / Helyum (İnce Ses)".yellow().bold().to_string(),
-        "demon" => "👹 Canavar / Demon (Karanlık Kalın Ses)".red().bold().to_string(),
-        "walkie_talkie" => "📻 Telsiz / Megafon (Askeri / Polis)".yellow().bold().to_string(),
+        "demon" => "👹 Canavar / Demon (Karanlık Kalın Ses)"
+            .red()
+            .bold()
+            .to_string(),
+        "walkie_talkie" => "📻 Telsiz / Megafon (Askeri / Polis)"
+            .yellow()
+            .bold()
+            .to_string(),
         "telephone" => "☎️  Eski Telefon (Sabit Hat Bandı)".yellow().to_string(),
         _ => "Normal (Stüdyo EQ)".normal().to_string(),
     };
     println!("  {:<24} : {}", "Özel Efekt Modu".dimmed(), fx_str);
 
     let sb_str = if is_playing {
-        "🔊 Çalıyor... ('micctl stop-play' ile durdur)".green().bold().to_string()
+        "🔊 Çalıyor... ('micctl stop-play' ile durdur)"
+            .green()
+            .bold()
+            .to_string()
     } else {
-        "Hazır ('micctl play <dosya>' veya 'micctl sfx <isim>')".dimmed().to_string()
+        "Hazır ('micctl play <dosya>' veya 'micctl sfx <isim>')"
+            .dimmed()
+            .to_string()
     };
     println!("  {:<24} : {}", "Soundboard / Ses".dimmed(), sb_str);
 
@@ -140,7 +171,9 @@ pub fn print_status(st: &State) {
     println!("  {:<24} : {}", "Low-cut Filtre".dimmed(), lc_str);
 
     let noise_str = if !rnnoise_installed {
-        "Kurulu Değil (pacman -S noise-suppression-for-voice)".dimmed().to_string()
+        "Kurulu Değil (pacman -S noise-suppression-for-voice)"
+            .dimmed()
+            .to_string()
     } else if st.noise_suppression {
         "Açık (RNNoise AI)".green().bold().to_string()
     } else {
@@ -151,9 +184,14 @@ pub fn print_status(st: &State) {
     println!("  {:<24} : {} %", "Çıkış Kazancı".dimmed(), st.gain);
 
     let mon_str = if dsp::is_monitoring() {
-        "● Dinleniyor ('micctl listen off' ile kapat)".green().bold().to_string()
+        "● Dinleniyor ('micctl listen off' ile kapat)"
+            .green()
+            .bold()
+            .to_string()
     } else {
-        "Kapalı ('micctl listen on' ile kulaklıktan duy)".dimmed().to_string()
+        "Kapalı ('micctl listen on' ile kulaklıktan duy)"
+            .dimmed()
+            .to_string()
     };
     println!("  {:<24} : {}", "Canlı Monitör".dimmed(), mon_str);
 
@@ -163,7 +201,11 @@ pub fn print_status(st: &State) {
         "Kapalı ('micctl autostart on' ile aç)".dimmed().to_string()
     };
     println!("  {:<24} : {}", "Açılışta Başlatma".dimmed(), auto_str);
-    println!("  {:<24} : {}", "Aktif Profil".dimmed(), st.preset.cyan().bold());
+    println!(
+        "  {:<24} : {}",
+        "Aktif Profil".dimmed(),
+        st.preset.cyan().bold()
+    );
     println!("{}\n", "═".repeat(65).dimmed());
 }
 
@@ -182,7 +224,11 @@ pub fn handle_nuke_toggle(st: &mut State, ultra: bool) {
             fx_mode: "none".to_string(),
         }));
         st.fx_mode = target_mode.to_string();
-        st.preset = if ultra { "ultra-nuke".into() } else { "nuke".into() };
+        st.preset = if ultra {
+            "ultra-nuke".into()
+        } else {
+            "nuke".into()
+        };
         st.gain = if ultra { 200 } else { 150 };
         let _ = state::save_state(st);
 
@@ -194,10 +240,17 @@ pub fn handle_nuke_toggle(st: &mut State, ultra: bool) {
         dsp::apply_gain(st.gain);
         dsp::play_sfx("nuke");
 
-        let title = if ultra { "💥💥 ULTRA NUKE AKTİF!" } else { "💥 NUKE AKTİF!" };
+        let title = if ultra {
+            "💥💥 ULTRA NUKE AKTİF!"
+        } else {
+            "💥 NUKE AKTİF!"
+        };
         dsp::send_notification(title, "Kulak Patlatan Modu Devrede!", "critical");
         println!("{}", title.red().bold());
-        println!("{}", "Normale dönmek için: micctl nuke (veya micctl ultra)".dimmed());
+        println!(
+            "{}",
+            "Normale dönmek için: micctl nuke (veya micctl ultra)".dimmed()
+        );
     } else {
         if let Some(b) = st.backup_state.take() {
             st.fx_mode = "none".to_string();
@@ -218,8 +271,15 @@ pub fn handle_nuke_toggle(st: &mut State, ultra: bool) {
             dsp::restart_daemon(st);
         }
         dsp::apply_gain(st.gain);
-        dsp::send_notification("🎙️ micctl", "Kulak Patlatan modu kapatıldı (Normal ses)", "normal");
-        println!("{}", "✓ Kulak Patlatan modu kapatıldı, normal stüdyo tonuna dönüldü.".green());
+        dsp::send_notification(
+            "🎙️ micctl",
+            "Kulak Patlatan modu kapatıldı (Normal ses)",
+            "normal",
+        );
+        println!(
+            "{}",
+            "✓ Kulak Patlatan modu kapatıldı, normal stüdyo tonuna dönüldü.".green()
+        );
     }
 }
 
@@ -233,13 +293,22 @@ pub fn handle_reset() {
     dsp::apply_gain(100);
     dsp::play_sfx("beep");
     dsp::send_notification("🎙️ micctl", "Tüm ayarlar varsayılana sıfırlandı.", "normal");
-    println!("{}", "✓ Tüm mikrofon ayarları, filtreler ve ses seviyesi varsayılana sıfırlandı.".green());
-    println!("{}", "Varsayılan: Bass +3dB, Mid 0dB, Treble +1.5dB, Gain 100%, Low-cut Açık.".dimmed());
+    println!(
+        "{}",
+        "✓ Tüm mikrofon ayarları, filtreler ve ses seviyesi varsayılana sıfırlandı.".green()
+    );
+    println!(
+        "{}",
+        "Varsayılan: Bass +3dB, Mid 0dB, Treble +1.5dB, Gain 100%, Low-cut Açık.".dimmed()
+    );
 }
 
 pub fn handle_play(args: &[String]) {
     if args.is_empty() {
-        println!("{}", "Kullanım: micctl play <ses_dosyası.mp3/wav/ogg> [ses_yüzdesi]".yellow());
+        println!(
+            "{}",
+            "Kullanım: micctl play <ses_dosyası.mp3/wav/ogg> [ses_yüzdesi]".yellow()
+        );
         println!("Örnek: micctl play ~/Müzik/meme.mp3 100");
         return;
     }
@@ -252,7 +321,7 @@ pub fn handle_play(args: &[String]) {
         }
     }
 
-    let p = PathBuf::from(shellexpand_path(target_file));
+    let p = shellexpand_path(target_file);
     if !p.exists() {
         println!("{} {}", "✗ Ses dosyası bulunamadı:".red(), target_file);
         return;
@@ -263,8 +332,16 @@ pub fn handle_play(args: &[String]) {
         dsp::start_daemon(&st);
     }
 
-    let file_name = p.file_name().and_then(|f| f.to_str()).unwrap_or(target_file);
-    println!("{} {} (%{} ses)", "🔊 Mikrofona çalınıyor:".cyan().bold(), file_name, vol);
+    let file_name = p
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or(target_file);
+    println!(
+        "{} {} (%{} ses)",
+        "🔊 Mikrofona çalınıyor:".cyan().bold(),
+        file_name,
+        vol
+    );
     println!("{}", "Durdurmak için: micctl stop-play".dimmed());
     dsp::play_audio_to_mic(&p, vol);
 }
@@ -272,7 +349,7 @@ pub fn handle_play(args: &[String]) {
 fn shellexpand_path(raw: &str) -> PathBuf {
     if raw.starts_with("~/") {
         if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home).join(&raw[2..]);
+            return PathBuf::from(home).join(raw.strip_prefix("~/").unwrap_or(raw));
         }
     }
     PathBuf::from(raw)
@@ -285,28 +362,67 @@ pub fn output_waybar_json(st: &State) {
     let fx = st.fx_mode.as_str();
 
     let (text, tooltip, class_name) = if !is_running {
-        ("🎙️ OFF".to_string(), "micctl: Servis kapalı".to_string(), "stopped")
+        (
+            "🎙️ OFF".to_string(),
+            "micctl: Servis kapalı".to_string(),
+            "stopped",
+        )
     } else if muted {
-        ("🎙️ MUTED".to_string(), "micctl: Mikrofon susturuldu".to_string(), "muted")
+        (
+            "🎙️ MUTED".to_string(),
+            "micctl: Mikrofon susturuldu".to_string(),
+            "muted",
+        )
     } else if is_playing {
-        ("🔊 PLAY".to_string(), "micctl: Mikrofona ses çalınıyor".to_string(), "playing")
+        (
+            "🔊 PLAY".to_string(),
+            "micctl: Mikrofona ses çalınıyor".to_string(),
+            "playing",
+        )
     } else if fx == "ultra_nuke" {
-        ("💥 ULTRA".to_string(), "micctl: Ultra Nuke Kıyamet Modu!".to_string(), "nuke")
+        (
+            "💥 ULTRA".to_string(),
+            "micctl: Ultra Nuke Kıyamet Modu!".to_string(),
+            "nuke",
+        )
     } else if fx == "nuke" {
-        ("💥 NUKE".to_string(), "micctl: Kulak Patlatan Modu Aktif!".to_string(), "nuke")
+        (
+            "💥 NUKE".to_string(),
+            "micctl: Kulak Patlatan Modu Aktif!".to_string(),
+            "nuke",
+        )
     } else if fx == "robot" {
-        ("🤖 ROBOT".to_string(), "micctl: Robot Modu".to_string(), "fx")
+        (
+            "🤖 ROBOT".to_string(),
+            "micctl: Robot Modu".to_string(),
+            "fx",
+        )
     } else if fx == "rabbit" {
-        ("🐰 TAVŞAN".to_string(), "micctl: Tavşan / Helyum Modu".to_string(), "fx")
+        (
+            "🐰 TAVŞAN".to_string(),
+            "micctl: Tavşan / Helyum Modu".to_string(),
+            "fx",
+        )
     } else if fx == "demon" {
-        ("👹 DEMON".to_string(), "micctl: Canavar / Demon Modu".to_string(), "fx")
+        (
+            "👹 DEMON".to_string(),
+            "micctl: Canavar / Demon Modu".to_string(),
+            "fx",
+        )
     } else if fx == "walkie_talkie" {
-        ("📻 Telsiz".to_string(), "micctl: Walkie-Talkie FX".to_string(), "fx")
+        (
+            "📻 Telsiz".to_string(),
+            "micctl: Walkie-Talkie FX".to_string(),
+            "fx",
+        )
     } else {
         let bass = st.bass;
         let p = &st.preset;
         let t = format!("🎙️ {:+.1}dB", bass);
-        let tip = format!("micctl Aktif\nProfil: {}\nBass: {:+.1}dB\nGain: {}%", p, bass, st.gain);
+        let tip = format!(
+            "micctl Aktif\nProfil: {}\nBass: {:+.1}dB\nGain: {}%",
+            p, bass, st.gain
+        );
         (t, tip, "active")
     };
 
@@ -348,7 +464,11 @@ pub fn handle_cli(args: Vec<String>) {
             }
             let sfx_name = args[1].to_lowercase();
             dsp::play_sfx(&sfx_name);
-            println!("{} '{}' efekti mikrofona ve kulaklığa çalındı.", "✓".green(), sfx_name);
+            println!(
+                "{} '{}' efekti mikrofona ve kulaklığa çalındı.",
+                "✓".green(),
+                sfx_name
+            );
         }
         "ptt" => {
             if args.len() >= 2 && args[1] == "start" {
@@ -380,7 +500,11 @@ pub fn handle_cli(args: Vec<String>) {
                 dsp::start_daemon(&st);
             }
 
-            println!("{} {} saniyelik ses testi başlıyor... Mikrofonuna bir şeyler söyle!", "🎙️".cyan().bold(), sec);
+            println!(
+                "{} {} saniyelik ses testi başlıyor... Mikrofonuna bir şeyler söyle!",
+                "🎙️".cyan().bold(),
+                sec
+            );
             let test_wav = "/tmp/micctl_test_sample.wav";
 
             let rec_proc = Command::new("pw-record")
@@ -402,7 +526,12 @@ pub fn handle_cli(args: Vec<String>) {
                 let _ = p.wait();
             }
 
-            println!("{}", "🔊 Kayıt tamamlandı! Kulaklığından oynatılıyor...".green().bold());
+            println!(
+                "{}",
+                "🔊 Kayıt tamamlandı! Kulaklığından oynatılıyor..."
+                    .green()
+                    .bold()
+            );
             let _ = Command::new("pw-play")
                 .arg(test_wav)
                 .stdout(Stdio::null())
@@ -413,11 +542,18 @@ pub fn handle_cli(args: Vec<String>) {
         "autostart" | "baslangic" | "açılış" => {
             if args.len() < 2 || matches!(args[1].as_str(), "status" | "durum") {
                 let en = dsp::is_systemd_enabled();
-                let st_text = if en { "Açık".green() } else { "Kapalı".red() };
+                let st_text = if en {
+                    "Açık".green()
+                } else {
+                    "Kapalı".red()
+                };
                 println!("Bilgisayar açılışında otomatik başlama: {}", st_text);
                 return;
             }
-            let enable = matches!(args[1].to_lowercase().as_str(), "on" | "1" | "true" | "enable" | "ac" | "aç");
+            let enable = matches!(
+                args[1].to_lowercase().as_str(),
+                "on" | "1" | "true" | "enable" | "ac" | "aç"
+            );
             dsp::set_systemd_autostart(enable);
             if enable {
                 println!("{}", "✓ Otomatik başlama AÇILDI (systemd service).".green());
@@ -442,7 +578,10 @@ pub fn handle_cli(args: Vec<String>) {
                 if arg == "toggle" || arg == "degis" {
                     dsp::set_mute(None)
                 } else {
-                    let target = matches!(arg.as_str(), "on" | "1" | "true" | "ac" | "aç" | "yes" | "sustur");
+                    let target = matches!(
+                        arg.as_str(),
+                        "on" | "1" | "true" | "ac" | "aç" | "yes" | "sustur"
+                    );
                     dsp::set_mute(Some(target))
                 }
             };
@@ -501,7 +640,11 @@ pub fn handle_cli(args: Vec<String>) {
             if dsp::is_daemon_running() {
                 dsp::restart_daemon(&st);
             }
-            println!("{} {}", "✓ FX modu değiştirildi:".green(), st.fx_mode.bold());
+            println!(
+                "{} {}",
+                "✓ FX modu değiştirildi:".green(),
+                st.fx_mode.bold()
+            );
         }
         "start" => {
             if dsp::is_daemon_running() {
@@ -509,9 +652,15 @@ pub fn handle_cli(args: Vec<String>) {
             } else {
                 println!("{}", "Filtre servisi başlatılıyor...".cyan());
                 if dsp::start_daemon(&st) {
-                    println!("{}", "✓ Servis başarıyla başlatıldı ve 'micctl_source' oluşturuldu.".green());
+                    println!(
+                        "{}",
+                        "✓ Servis başarıyla başlatıldı ve 'micctl_source' oluşturuldu.".green()
+                    );
                 } else {
-                    println!("{}", "✗ Servis başlatılamadı. PipeWire durumunu kontrol edin.".red());
+                    println!(
+                        "{}",
+                        "✗ Servis başlatılamadı. PipeWire durumunu kontrol edin.".red()
+                    );
                 }
             }
         }
@@ -532,7 +681,10 @@ pub fn handle_cli(args: Vec<String>) {
                 dsp::start_daemon(&st);
             }
             if dsp::set_as_default_mic() {
-                println!("{}", "✓ 'micctl_source' varsayılan sistem mikrofonu yapıldı.".green());
+                println!(
+                    "{}",
+                    "✓ 'micctl_source' varsayılan sistem mikrofonu yapıldı.".green()
+                );
             } else {
                 println!("{}", "✗ Varsayılan mikrofon ayarlanamadı.".red());
             }
@@ -540,7 +692,9 @@ pub fn handle_cli(args: Vec<String>) {
         "bass" | "b" => {
             if args.len() < 2 {
                 println!("Mevcut bass: {:+.1} dB", st.bass);
-                println!("Kullanım: micctl bass +5 | micctl bass -3 | micctl bass set 20 (-20..+30 dB)");
+                println!(
+                    "Kullanım: micctl bass +5 | micctl bass -3 | micctl bass set 20 (-20..+30 dB)"
+                );
                 return;
             }
             let val = parse_num_arg(st.bass, &args[1..], -20.0, 30.0);
@@ -598,47 +752,73 @@ pub fn handle_cli(args: Vec<String>) {
             let target = if args.len() < 2 {
                 !st.lowcut
             } else {
-                matches!(args[1].to_lowercase().as_str(), "on" | "1" | "true" | "enable" | "ac" | "aç")
+                matches!(
+                    args[1].to_lowercase().as_str(),
+                    "on" | "1" | "true" | "enable" | "ac" | "aç"
+                )
             };
             st.lowcut = target;
             let _ = state::save_state(&st);
             if dsp::is_daemon_running() {
                 dsp::restart_daemon(&st);
             }
-            let status = if target { "Açık".green() } else { "Kapalı".red() };
+            let status = if target {
+                "Açık".green()
+            } else {
+                "Kapalı".red()
+            };
             println!("{} {}", "✓ Low-cut filtresi (80 Hz):".green(), status);
         }
         "noise" | "rnnoise" => {
             if dsp::find_rnnoise_plugin().is_none() {
-                println!("{}", "RNNoise LADSPA eklentisi sistemde bulunamadı.".yellow());
-                println!("Yüklemek için: {}", "sudo pacman -S noise-suppression-for-voice".cyan().bold());
+                println!(
+                    "{}",
+                    "RNNoise LADSPA eklentisi sistemde bulunamadı.".yellow()
+                );
+                println!(
+                    "Yüklemek için: {}",
+                    "sudo pacman -S noise-suppression-for-voice".cyan().bold()
+                );
                 return;
             }
             let target = if args.len() < 2 {
                 !st.noise_suppression
             } else {
-                matches!(args[1].to_lowercase().as_str(), "on" | "1" | "true" | "enable" | "ac" | "aç")
+                matches!(
+                    args[1].to_lowercase().as_str(),
+                    "on" | "1" | "true" | "enable" | "ac" | "aç"
+                )
             };
             st.noise_suppression = target;
             let _ = state::save_state(&st);
             if dsp::is_daemon_running() {
                 dsp::restart_daemon(&st);
             }
-            let status = if target { "Açık (RNNoise AI)".green() } else { "Kapalı".red() };
+            let status = if target {
+                "Açık (RNNoise AI)".green()
+            } else {
+                "Kapalı".red()
+            };
             println!("{} {}", "✓ Gürültü engelleme:".green(), status);
         }
         "listen" | "monitor" => {
             let target = if args.len() < 2 {
                 !dsp::is_monitoring()
             } else {
-                matches!(args[1].to_lowercase().as_str(), "on" | "1" | "true" | "enable" | "ac" | "aç")
+                matches!(
+                    args[1].to_lowercase().as_str(),
+                    "on" | "1" | "true" | "enable" | "ac" | "aç"
+                )
             };
             if target {
                 if !dsp::is_daemon_running() {
                     dsp::start_daemon(&st);
                 }
                 dsp::start_monitoring();
-                println!("{}", "✓ Kendi sesini dinleme açıldı (Kulaklıktan duyuluyor).".green());
+                println!(
+                    "{}",
+                    "✓ Kendi sesini dinleme açıldı (Kulaklıktan duyuluyor).".green()
+                );
                 println!("{}", "Kapatmak için: micctl listen off".dimmed());
             } else {
                 dsp::stop_monitoring();
@@ -650,7 +830,11 @@ pub fn handle_cli(args: Vec<String>) {
                 let presets = state::list_presets();
                 println!("{}", "Kullanılabilir Profiller:".cyan().bold());
                 for p in presets {
-                    let active = if p == st.preset { " (Aktif)".green().to_string() } else { "".to_string() };
+                    let active = if p == st.preset {
+                        " (Aktif)".green().to_string()
+                    } else {
+                        "".to_string()
+                    };
                     println!("  • {}{}", p, active);
                 }
                 return;
@@ -672,7 +856,11 @@ pub fn handle_cli(args: Vec<String>) {
                         if dsp::is_daemon_running() {
                             dsp::restart_daemon(&st);
                         }
-                        dsp::send_notification("🎙️ micctl", &format!("'{}' profili yüklendi", name), "normal");
+                        dsp::send_notification(
+                            "🎙️ micctl",
+                            &format!("'{}' profili yüklendi", name),
+                            "normal",
+                        );
                         println!("{} '{}' profili yüklendi ve uygulandı.", "✓".green(), name);
                     }
                     Err(e) => {
@@ -686,8 +874,11 @@ pub fn handle_cli(args: Vec<String>) {
                 let _ = state::save_preset(name, &st);
                 st.preset = name.to_string();
                 let _ = state::save_state(&st);
-                println!("{} Mevcut ayarlar '{}' profili olarak kaydedildi.", "✓".green(), name);
-                return;
+                println!(
+                    "{} Mevcut ayarlar '{}' profili olarak kaydedildi.",
+                    "✓".green(),
+                    name
+                );
             }
         }
         _ => {

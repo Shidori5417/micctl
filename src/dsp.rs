@@ -437,20 +437,27 @@ pub fn generate_filter_conf(state: &State) -> String {
     for i in 0..nodes.len().saturating_sub(1) {
         links.push(format!(
             r#"{{ output = "{}:Out" input = "{}:In" }}"#,
-            nodes[i].name, nodes[i + 1].name
+            nodes[i].name,
+            nodes[i + 1].name
         ));
     }
 
     let mut nodes_str = String::new();
     for n in &nodes {
         nodes_str.push_str("                    {\n");
-        nodes_str.push_str(&format!("                        type    = {}\n", n.node_type));
+        nodes_str.push_str(&format!(
+            "                        type    = {}\n",
+            n.node_type
+        ));
         nodes_str.push_str(&format!("                        name    = {}\n", n.name));
         if let Some(p) = n.plugin {
             nodes_str.push_str(&format!("                        plugin  = \"{}\"\n", p));
         }
         nodes_str.push_str(&format!("                        label   = {}\n", n.label));
-        nodes_str.push_str(&format!("                        control = {}\n", n.control));
+        nodes_str.push_str(&format!(
+            "                        control = {}\n",
+            n.control
+        ));
         nodes_str.push_str("                    }\n");
     }
 
@@ -593,10 +600,7 @@ pub fn set_mute(val: Option<bool>) -> bool {
 }
 
 pub fn get_default_source() -> String {
-    if let Ok(out) = Command::new("pactl")
-        .arg("get-default-source")
-        .output()
-    {
+    if let Ok(out) = Command::new("pactl").arg("get-default-source").output() {
         let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
         if !s.is_empty() {
             return s;
@@ -653,12 +657,18 @@ pub fn ensure_soundboard() {
         let def_sink = String::from_utf8_lossy(&out.stdout).trim().to_string();
         if !def_sink.is_empty() && def_sink != "micctl_soundboard" {
             let _ = Command::new("pw-link")
-                .args(["micctl_soundboard:monitor_FL", &format!("{}:playback_FL", def_sink)])
+                .args([
+                    "micctl_soundboard:monitor_FL",
+                    &format!("{}:playback_FL", def_sink),
+                ])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status();
             let _ = Command::new("pw-link")
-                .args(["micctl_soundboard:monitor_FR", &format!("{}:playback_FR", def_sink)])
+                .args([
+                    "micctl_soundboard:monitor_FR",
+                    &format!("{}:playback_FR", def_sink),
+                ])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status();
@@ -782,7 +792,10 @@ pub fn start_daemon(state: &State) -> bool {
         // Wait until micctl_source appears in pactl list sources
         for _ in 0..20 {
             thread::sleep(Duration::from_millis(100));
-            if let Ok(out) = Command::new("pactl").args(["list", "sources", "short"]).output() {
+            if let Ok(out) = Command::new("pactl")
+                .args(["list", "sources", "short"])
+                .output()
+            {
                 let text = String::from_utf8_lossy(&out.stdout);
                 if text.contains("micctl_source") {
                     apply_gain(state.gain);
