@@ -7,45 +7,53 @@ use std::time::Duration;
 use crate::dsp;
 use crate::state::{self, State, StateBackup};
 
+/// Lowercases an argument and strips the optional `db` / `%` unit suffixes.
+fn normalize_num_token(raw: &str) -> String {
+    let lower = raw.trim().to_lowercase();
+    let no_db = lower.strip_suffix("db").unwrap_or(lower.as_str());
+    let no_pct = no_db.strip_suffix('%').unwrap_or(no_db);
+    no_pct.trim().to_string()
+}
+
+/// Parses a finite number that carries no sign of its own.
+fn parse_unsigned(s: &str) -> Option<f64> {
+    if s.starts_with(['+', '-']) {
+        return None;
+    }
+    s.parse::<f64>().ok().filter(|n| n.is_finite())
+}
+
+/// Resolves a numeric command argument against the current value.
+///
+/// - `set <N>`: absolute value, `N` may be negative (`micctl bass set -5`).
+/// - `+N` / `-N`: relative to `curr`.
+/// - `N`: absolute value.
+///
+/// Unparseable input leaves `curr` unchanged. The result is clamped to
+/// `[min_v, max_v]` and rounded to one decimal place.
 pub fn parse_num_arg(curr: f64, args: &[String], min_v: f64, max_v: f64) -> f64 {
-    let mut tokens: Vec<String> = Vec::new();
-    for a in args {
-        let clean = a
-            .to_lowercase()
-            .replace("set", "")
-            .replace("db", "")
-            .replace('%', "")
-            .trim()
-            .to_string();
-        if !clean.is_empty() {
-            tokens.push(clean);
-        }
-    }
+    let tokens: Vec<String> = args
+        .iter()
+        .map(|a| normalize_num_token(a))
+        .filter(|t| !t.is_empty())
+        .collect();
 
-    if tokens.is_empty() {
-        return curr;
-    }
-
-    let raw = &tokens[tokens.len() - 1];
-    let val = if raw.starts_with('+') {
-        if let Some(Ok(num)) = raw.strip_prefix('+').map(str::parse::<f64>) {
-            curr + num
-        } else {
-            curr
+    let val = match tokens.first().map(String::as_str) {
+        None => curr,
+        Some("set") => tokens
+            .get(1)
+            .and_then(|t| t.parse::<f64>().ok())
+            .filter(|n| n.is_finite())
+            .unwrap_or(curr),
+        Some(first) => {
+            if let Some(rest) = first.strip_prefix('+') {
+                parse_unsigned(rest).map_or(curr, |n| curr + n)
+            } else if let Some(rest) = first.strip_prefix('-') {
+                parse_unsigned(rest).map_or(curr, |n| curr - n)
+            } else {
+                parse_unsigned(first).unwrap_or(curr)
+            }
         }
-    } else if raw.starts_with('-')
-        && args[args.len() - 1].starts_with('-')
-        && !args[args.len() - 1].to_lowercase().contains("set")
-    {
-        if let Some(Ok(num)) = raw.strip_prefix('-').map(str::parse::<f64>) {
-            curr - num
-        } else {
-            curr
-        }
-    } else if let Ok(num) = raw.parse::<f64>() {
-        num
-    } else {
-        curr
     };
 
     let clamped = val.clamp(min_v, max_v);
@@ -347,9 +355,9 @@ pub fn handle_play(args: &[String]) {
 }
 
 fn shellexpand_path(raw: &str) -> PathBuf {
-    if raw.starts_with("~/") {
+    if let Some(rest) = raw.strip_prefix("~/") {
         if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home).join(raw.strip_prefix("~/").unwrap_or(raw));
+            return PathBuf::from(home).join(rest);
         }
     }
     PathBuf::from(raw)
@@ -871,7 +879,10 @@ pub fn handle_cli(args: Vec<String>) {
             }
             if action == "save" && args.len() >= 3 {
                 let name = &args[2];
-                let _ = state::save_preset(name, &st);
+                if let Err(e) = state::save_preset(name, &st) {
+                    println!("{} {}", "✗".red(), e);
+                    return;
+                }
                 st.preset = name.to_string();
                 let _ = state::save_state(&st);
                 println!(
@@ -885,5 +896,62 @@ pub fn handle_cli(args: Vec<String>) {
             println!("{} {}", "Bilinmeyen komut:".red(), cmd);
             println!("Komutlar: status, ultra, nuke, fx, play, stop-play, sfx, reset, test, bass, mid, treble, gain, mute, listen, preset, waybar, tui");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_num_arg;
+
+    fn args(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    const MIN: f64 = -20.0;
+    const MAX: f64 = 30.0;
+
+    #[test]
+    fn set_negative_is_absolute() {
+        assert_eq!(parse_num_arg(3.0, &args(&["set", "-5"]), MIN, MAX), -5.0);
+    }
+
+    #[test]
+    fn set_positive_is_absolute() {
+        assert_eq!(parse_num_arg(3.0, &args(&["set", "3"]), MIN, MAX), 3.0);
+    }
+
+    #[test]
+    fn plus_is_relative() {
+        assert_eq!(parse_num_arg(3.0, &args(&["+2"]), MIN, MAX), 5.0);
+    }
+
+    #[test]
+    fn minus_is_relative() {
+        assert_eq!(parse_num_arg(3.0, &args(&["-2"]), MIN, MAX), 1.0);
+    }
+
+    #[test]
+    fn plain_number_is_absolute() {
+        assert_eq!(parse_num_arg(3.0, &args(&["4"]), MIN, MAX), 4.0);
+    }
+
+    #[test]
+    fn units_are_ignored() {
+        assert_eq!(parse_num_arg(3.0, &args(&["set", "-5dB"]), MIN, MAX), -5.0);
+        assert_eq!(parse_num_arg(100.0, &args(&["125%"]), 0.0, 200.0), 125.0);
+    }
+
+    #[test]
+    fn result_is_clamped() {
+        assert_eq!(parse_num_arg(3.0, &args(&["set", "99"]), MIN, MAX), 30.0);
+        assert_eq!(parse_num_arg(3.0, &args(&["-99"]), MIN, MAX), -20.0);
+    }
+
+    #[test]
+    fn invalid_input_keeps_current() {
+        assert_eq!(parse_num_arg(3.0, &args(&["abc"]), MIN, MAX), 3.0);
+        assert_eq!(parse_num_arg(3.0, &args(&["+-2"]), MIN, MAX), 3.0);
+        assert_eq!(parse_num_arg(3.0, &args(&["set"]), MIN, MAX), 3.0);
+        assert_eq!(parse_num_arg(3.0, &[], MIN, MAX), 3.0);
     }
 }
