@@ -2,6 +2,9 @@
 
 Arch Linux üzerinde PipeWire ile çalışan mikrofon filtresi, canlı EQ, ses efektleri ve soundboard aracı. CLI ve TUI olarak kullanılır.
 
+[![CI](https://github.com/Shidori5417/micctl/actions/workflows/ci.yml/badge.svg)](https://github.com/Shidori5417/micctl/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 <p align="center">
   <img src="assets/screenshot_cli.png" alt="micctl CLI" width="850">
 </p>
@@ -109,6 +112,8 @@ sudo pacman -S pipewire libpulse mpv libnotify
 # İsteğe bağlı: RNNoise (micctl noise on için)
 sudo pacman -S noise-suppression-for-voice
 
+cargo install --git https://github.com/Shidori5417/micctl
+# veya kaynaktan derleme:
 cargo build --release
 ln -sf "$(pwd)/target/release/micctl" ~/.local/bin/micctl
 ```
