@@ -511,6 +511,9 @@ context.modules = [
 }
 
 pub fn is_pid_alive(pid: u32) -> bool {
+    if pid <= 1 || pid > i32::MAX as u32 {
+        return false;
+    }
     let proc_path = format!("/proc/{}", pid);
     if !Path::new(&proc_path).exists() {
         return false;
@@ -525,29 +528,75 @@ pub fn is_pid_alive(pid: u32) -> bool {
     true
 }
 
+fn pid_matches_cmdline(pid: u32, expected_cmds: &[&str]) -> bool {
+    if !is_pid_alive(pid) {
+        return false;
+    }
+    let Ok(cmdline) = fs::read(format!("/proc/{}/cmdline", pid)) else {
+        return false;
+    };
+    let text = String::from_utf8_lossy(&cmdline).replace('\0', " ");
+    expected_cmds.iter().any(|cmd| text.contains(cmd))
+}
+
+fn read_validated_pid(pid_file: &Path, expected_cmds: &[&str]) -> Option<u32> {
+    let content = fs::read_to_string(pid_file).ok()?;
+    let pid = content.trim().parse::<u32>().ok()?;
+    if pid_matches_cmdline(pid, expected_cmds) {
+        Some(pid)
+    } else {
+        None
+    }
+}
+
+fn send_signal_if_valid(pid: u32, expected_cmds: &[&str], sig: libc::c_int) -> bool {
+    if pid_matches_cmdline(pid, expected_cmds) {
+        // SAFETY: `pid` is validated to be in `2..=i32::MAX` and its `/proc/<pid>/cmdline`
+        // matches `expected_cmds`, so it cannot target PID 0, -1, or an unrelated process.
+        unsafe { libc::kill(pid as i32, sig) == 0 }
+    } else {
+        false
+    }
+}
+
+pub fn stop_child_gracefully(child: &mut std::process::Child) {
+    let pid = child.id();
+    if pid > 1 && pid <= i32::MAX as u32 {
+        unsafe {
+            libc::kill(pid as i32, libc::SIGTERM);
+        }
+    }
+    let _ = child.wait();
+}
+
+pub fn test_wav_path() -> std::path::PathBuf {
+    let dir = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    dir.join(format!("micctl_test_{}.wav", std::process::id()))
+}
+
 pub fn is_daemon_running() -> bool {
     let pid_file = get_daemon_pid_file();
     if !pid_file.exists() {
         return false;
     }
-    if let Ok(content) = fs::read_to_string(&pid_file) {
-        if let Ok(pid) = content.trim().parse::<u32>() {
-            if is_pid_alive(pid) {
-                return true;
-            }
-        }
+    if read_validated_pid(&pid_file, &["pipewire"]).is_some() {
+        return true;
     }
     let _ = fs::remove_file(pid_file);
     false
 }
 
 pub fn get_daemon_pid() -> Option<u32> {
-    if is_daemon_running() {
-        let pid_file = get_daemon_pid_file();
-        if let Ok(content) = fs::read_to_string(pid_file) {
-            return content.trim().parse::<u32>().ok();
-        }
+    let pid_file = get_daemon_pid_file();
+    if !pid_file.exists() {
+        return None;
     }
+    if let Some(pid) = read_validated_pid(&pid_file, &["pipewire"]) {
+        return Some(pid);
+    }
+    let _ = fs::remove_file(pid_file);
     None
 }
 
@@ -718,12 +767,8 @@ pub fn play_audio_to_mic(file_path: &Path, volume: u32) -> bool {
 pub fn stop_audio_playback() -> bool {
     let pid_file = get_playback_pid_file();
     if pid_file.exists() {
-        if let Ok(content) = fs::read_to_string(&pid_file) {
-            if let Ok(pid) = content.trim().parse::<u32>() {
-                unsafe {
-                    libc::kill(pid as i32, libc::SIGTERM);
-                }
-            }
+        if let Some(pid) = read_validated_pid(&pid_file, &["mpv"]) {
+            send_signal_if_valid(pid, &["mpv"], libc::SIGTERM);
         }
         let _ = fs::remove_file(&pid_file);
     }
@@ -742,12 +787,8 @@ pub fn is_audio_playing() -> bool {
     if !pid_file.exists() {
         return false;
     }
-    if let Ok(content) = fs::read_to_string(&pid_file) {
-        if let Ok(pid) = content.trim().parse::<u32>() {
-            if is_pid_alive(pid) {
-                return true;
-            }
-        }
+    if read_validated_pid(&pid_file, &["mpv"]).is_some() {
+        return true;
     }
     let _ = fs::remove_file(pid_file);
     false
@@ -812,9 +853,7 @@ pub fn start_daemon(state: &State) -> bool {
 pub fn stop_daemon() -> bool {
     invalidate_cached_node_id();
     if let Some(pid) = get_daemon_pid() {
-        unsafe {
-            libc::kill(pid as i32, libc::SIGTERM);
-        }
+        send_signal_if_valid(pid, &["pipewire"], libc::SIGTERM);
         for _ in 0..15 {
             if !is_pid_alive(pid) {
                 break;
@@ -822,14 +861,12 @@ pub fn stop_daemon() -> bool {
             thread::sleep(Duration::from_millis(50));
         }
         if is_pid_alive(pid) {
-            unsafe {
-                libc::kill(pid as i32, libc::SIGKILL);
-            }
+            send_signal_if_valid(pid, &["pipewire"], libc::SIGKILL);
         }
         let _ = fs::remove_file(get_daemon_pid_file());
     }
     let _ = Command::new("pkill")
-        .args(["-f", "pipewire.*filter-chain.conf"])
+        .args(["-f", "pipewire.*micctl/filter-chain\\.conf"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
@@ -850,12 +887,8 @@ pub fn is_monitoring() -> bool {
     if !pid_file.exists() {
         return false;
     }
-    if let Ok(content) = fs::read_to_string(&pid_file) {
-        if let Ok(pid) = content.trim().parse::<u32>() {
-            if is_pid_alive(pid) {
-                return true;
-            }
-        }
+    if read_validated_pid(&pid_file, &["pw-loopback"]).is_some() {
+        return true;
     }
     let _ = fs::remove_file(pid_file);
     false
@@ -887,12 +920,8 @@ pub fn start_monitoring() -> bool {
 pub fn stop_monitoring() -> bool {
     let pid_file = get_monitor_pid_file();
     if pid_file.exists() {
-        if let Ok(content) = fs::read_to_string(&pid_file) {
-            if let Ok(pid) = content.trim().parse::<u32>() {
-                unsafe {
-                    libc::kill(pid as i32, libc::SIGTERM);
-                }
-            }
+        if let Some(pid) = read_validated_pid(&pid_file, &["pw-loopback"]) {
+            send_signal_if_valid(pid, &["pw-loopback"], libc::SIGTERM);
         }
         let _ = fs::remove_file(&pid_file);
     }
@@ -914,21 +943,28 @@ pub fn is_systemd_enabled() -> bool {
 
 pub fn ensure_systemd_service_file() -> std::io::Result<()> {
     let svc_file = get_systemd_service_file();
+    if let Some(parent) = svc_file.parent() {
+        fs::create_dir_all(parent)?;
+    }
     if !svc_file.exists() {
-        let content = r#"[Unit]
+        let conf_path = get_filter_conf_file();
+        let content = format!(
+            r#"[Unit]
 Description=micctl Microphone DSP Filter Chain Service
 After=pipewire.service
 PartOf=pipewire.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/pipewire -c %h/.config/micctl/filter-chain.conf
+ExecStart=/usr/bin/pipewire -c {}
 Restart=on-failure
 RestartSec=1
 
 [Install]
 WantedBy=pipewire.service
-"#;
+"#,
+            conf_path.display()
+        );
         fs::write(svc_file, content)?;
         let _ = Command::new("systemctl")
             .args(["--user", "daemon-reload"])
@@ -938,6 +974,10 @@ WantedBy=pipewire.service
 }
 
 pub fn set_systemd_autostart(enable: bool) -> bool {
+    if enable && !get_filter_conf_file().exists() {
+        let st = crate::state::load_state();
+        let _ = write_config(&st);
+    }
     let _ = ensure_systemd_service_file();
     let action = if enable { "enable" } else { "disable" };
     Command::new("systemctl")
@@ -945,4 +985,25 @@ pub fn set_systemd_autostart(enable: bool) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pid_validation_rejects_invalid_and_mismatched() {
+        assert!(!is_pid_alive(0));
+        assert!(!is_pid_alive(1));
+        assert!(!is_pid_alive(u32::MAX));
+        assert!(!is_pid_alive(i32::MAX as u32 + 1));
+        assert!(!pid_matches_cmdline(0, &["pipewire"]));
+        assert!(!pid_matches_cmdline(1, &["init"]));
+
+        let self_pid = std::process::id();
+        assert!(!pid_matches_cmdline(
+            self_pid,
+            &["definitely-not-this-test-binary-xyz"]
+        ));
+    }
 }

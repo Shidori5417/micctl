@@ -217,7 +217,7 @@ pub fn print_status(st: &State) {
     println!("{}\n", "═".repeat(65).dimmed());
 }
 
-pub fn handle_nuke_toggle(st: &mut State, ultra: bool) {
+pub fn toggle_nuke(st: &mut State, ultra: bool) -> (bool, &'static str, &'static str) {
     let target_mode = if ultra { "ultra_nuke" } else { "nuke" };
     let curr_fx = st.fx_mode.clone();
 
@@ -248,17 +248,13 @@ pub fn handle_nuke_toggle(st: &mut State, ultra: bool) {
         dsp::apply_gain(st.gain);
         dsp::play_sfx("nuke");
 
-        let title = if ultra {
-            "💥💥 ULTRA NUKE AKTİF!"
+        let (title, status_msg) = if ultra {
+            ("💥💥 ULTRA NUKE AKTİF!", "💥💥 Ultra Nuke Açıldı!")
         } else {
-            "💥 NUKE AKTİF!"
+            ("💥 NUKE AKTİF!", "💥 Nuke Modu Açıldı!")
         };
         dsp::send_notification(title, "Kulak Patlatan Modu Devrede!", "critical");
-        println!("{}", title.red().bold());
-        println!(
-            "{}",
-            "Normale dönmek için: micctl nuke (veya micctl ultra)".dimmed()
-        );
+        (true, title, status_msg)
     } else {
         if let Some(b) = st.backup_state.take() {
             st.fx_mode = "none".to_string();
@@ -284,6 +280,19 @@ pub fn handle_nuke_toggle(st: &mut State, ultra: bool) {
             "Kulak Patlatan modu kapatıldı (Normal ses)",
             "normal",
         );
+        (false, "", "Normal moda dönüldü")
+    }
+}
+
+pub fn handle_nuke_toggle(st: &mut State, ultra: bool) {
+    let (activated, title, _) = toggle_nuke(st, ultra);
+    if activated {
+        println!("{}", title.red().bold());
+        println!(
+            "{}",
+            "Normale dönmek için: micctl nuke (veya micctl ultra)".dimmed()
+        );
+    } else {
         println!(
             "{}",
             "✓ Kulak Patlatan modu kapatıldı, normal stüdyo tonuna dönüldü.".green()
@@ -423,6 +432,12 @@ pub fn output_waybar_json(st: &State) {
             "micctl: Walkie-Talkie FX".to_string(),
             "fx",
         )
+    } else if fx == "telephone" {
+        (
+            "📞 TELEFON".to_string(),
+            "micctl: Telefon FX".to_string(),
+            "fx",
+        )
     } else {
         let bass = st.bass;
         let p = &st.preset;
@@ -449,6 +464,17 @@ pub fn handle_cli(args: Vec<String>) {
     }
 
     let cmd = args[0].to_lowercase();
+    if matches!(cmd.as_str(), "help" | "-h" | "--help") {
+        println!("micctl {}", env!("CARGO_PKG_VERSION"));
+        println!("PipeWire mikrofon DSP, soundboard ve FX aracı (CLI/TUI)");
+        println!("\nKullanım: micctl [komut] [argümanlar]");
+        println!("Komutlar: status, start, stop-daemon, restart, default, autostart, ultra, nuke, fx, play, stop-play, sfx, ptt, hold-nuke, reset, test, bass, mid, treble, gain, lowcut, noise, mute, unmute, listen, preset, waybar, tui");
+        return;
+    }
+    if matches!(cmd.as_str(), "-v" | "--version") {
+        println!("micctl {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     let mut st = state::load_state();
 
     match cmd.as_str() {
@@ -471,6 +497,12 @@ pub fn handle_cli(args: Vec<String>) {
                 return;
             }
             let sfx_name = args[1].to_lowercase();
+            let _ = crate::sfx::ensure_sounds();
+            if crate::sfx::get_sound_path(&sfx_name).is_none() {
+                println!("{} '{}'", "✗ Bilinmeyen SFX:".red(), sfx_name);
+                println!("Kullanılabilir SFX: roger, nuke, airhorn, beep");
+                return;
+            }
             dsp::play_sfx(&sfx_name);
             println!(
                 "{} '{}' efekti mikrofona ve kulaklığa çalındı.",
@@ -513,10 +545,11 @@ pub fn handle_cli(args: Vec<String>) {
                 "🎙️".cyan().bold(),
                 sec
             );
-            let test_wav = "/tmp/micctl_test_sample.wav";
+            let test_wav = dsp::test_wav_path();
+            let test_wav_str = test_wav.to_string_lossy().into_owned();
 
             let rec_proc = Command::new("pw-record")
-                .args(["--target", "micctl_source", test_wav])
+                .args(["--target", "micctl_source", &test_wav_str])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn();
@@ -530,8 +563,7 @@ pub fn handle_cli(args: Vec<String>) {
             println!(" [Tamam]");
 
             if let Ok(mut p) = rec_proc {
-                let _ = p.kill();
-                let _ = p.wait();
+                dsp::stop_child_gracefully(&mut p);
             }
 
             println!(
@@ -541,10 +573,11 @@ pub fn handle_cli(args: Vec<String>) {
                     .bold()
             );
             let _ = Command::new("pw-play")
-                .arg(test_wav)
+                .arg(&test_wav)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status();
+            let _ = std::fs::remove_file(&test_wav);
             println!("{}", "✓ Test tamamlandı.".green());
         }
         "autostart" | "baslangic" | "açılış" => {
@@ -705,13 +738,18 @@ pub fn handle_cli(args: Vec<String>) {
                 );
                 return;
             }
+            let was_fx = st.fx_mode != "none";
             let val = parse_num_arg(st.bass, &args[1..], -20.0, 30.0);
             st.bass = val;
             st.preset = "özel".to_string();
             st.fx_mode = "none".to_string();
             let _ = state::save_state(&st);
             if dsp::is_daemon_running() {
-                dsp::update_live_eq(st.bass, st.mid, st.treble);
+                if was_fx {
+                    dsp::restart_daemon(&st);
+                } else {
+                    dsp::update_live_eq(st.bass, st.mid, st.treble);
+                }
             }
             println!("{} {:+.1} dB", "✓ Bass ayarlandı:".green(), val);
         }
@@ -720,13 +758,18 @@ pub fn handle_cli(args: Vec<String>) {
                 println!("Mevcut mid: {:+.1} dB", st.mid);
                 return;
             }
+            let was_fx = st.fx_mode != "none";
             let val = parse_num_arg(st.mid, &args[1..], -18.0, 20.0);
             st.mid = val;
             st.preset = "özel".to_string();
             st.fx_mode = "none".to_string();
             let _ = state::save_state(&st);
             if dsp::is_daemon_running() {
-                dsp::update_live_eq(st.bass, st.mid, st.treble);
+                if was_fx {
+                    dsp::restart_daemon(&st);
+                } else {
+                    dsp::update_live_eq(st.bass, st.mid, st.treble);
+                }
             }
             println!("{} {:+.1} dB", "✓ Mid ayarlandı:".green(), val);
         }
@@ -735,13 +778,18 @@ pub fn handle_cli(args: Vec<String>) {
                 println!("Mevcut tiz: {:+.1} dB", st.treble);
                 return;
             }
+            let was_fx = st.fx_mode != "none";
             let val = parse_num_arg(st.treble, &args[1..], -18.0, 20.0);
             st.treble = val;
             st.preset = "özel".to_string();
             st.fx_mode = "none".to_string();
             let _ = state::save_state(&st);
             if dsp::is_daemon_running() {
-                dsp::update_live_eq(st.bass, st.mid, st.treble);
+                if was_fx {
+                    dsp::restart_daemon(&st);
+                } else {
+                    dsp::update_live_eq(st.bass, st.mid, st.treble);
+                }
             }
             println!("{} {:+.1} dB", "✓ Tiz ayarlandı:".green(), val);
         }
@@ -894,7 +942,7 @@ pub fn handle_cli(args: Vec<String>) {
         }
         _ => {
             println!("{} {}", "Bilinmeyen komut:".red(), cmd);
-            println!("Komutlar: status, ultra, nuke, fx, play, stop-play, sfx, reset, test, bass, mid, treble, gain, mute, listen, preset, waybar, tui");
+            println!("Komutlar: status, start, stop-daemon, restart, default, autostart, ultra, nuke, fx, play, stop-play, sfx, ptt, hold-nuke, reset, test, bass, mid, treble, gain, lowcut, noise, mute, unmute, listen, preset, waybar, tui");
         }
     }
 }
