@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind},
+    event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -41,6 +41,13 @@ pub fn make_slider(val: f64, min_v: f64, max_v: f64, width: usize) -> String {
 }
 
 pub fn run_tui() {
+    let prev_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = disable_raw_mode();
+        let _ = execute!(stdout(), LeaveAlternateScreen);
+        prev_hook(info);
+    }));
+
     let _ = enable_raw_mode();
     let mut out = stdout();
     let _ = execute!(out, EnterAlternateScreen);
@@ -92,14 +99,23 @@ pub fn run_tui() {
     let mut pending_save = false;
 
     let test_recording = Arc::new(AtomicBool::new(false));
+    let rnnoise_installed = dsp::find_rnnoise_plugin().is_some();
+    let mut is_muted = dsp::is_muted();
+    let mut default_src = dsp::get_default_source();
+    let mut last_pactl_poll = Instant::now();
+    let mut force_pactl_poll = false;
+    const PACTL_POLL_INTERVAL: Duration = Duration::from_millis(750);
 
     loop {
         let is_running = dsp::is_daemon_running();
-        let is_muted = dsp::is_muted();
         let is_playing = dsp::is_audio_playing();
         let is_mon = dsp::is_monitoring();
-        let rnnoise_installed = dsp::find_rnnoise_plugin().is_some();
-        let default_src = dsp::get_default_source();
+        if force_pactl_poll || last_pactl_poll.elapsed() >= PACTL_POLL_INTERVAL {
+            is_muted = dsp::is_muted();
+            default_src = dsp::get_default_source();
+            last_pactl_poll = Instant::now();
+            force_pactl_poll = false;
+        }
         let is_default = default_src.contains("micctl_source");
         let fx = st.fx_mode.clone();
 
@@ -526,6 +542,12 @@ pub fn run_tui() {
                             }
                             break;
                         }
+                        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            if pending_save {
+                                let _ = state::save_state(&st);
+                            }
+                            break;
+                        }
                         KeyCode::Up | KeyCode::Char('k') => {
                             if selected > 0 {
                                 selected -= 1;
@@ -562,6 +584,7 @@ pub fn run_tui() {
                                 }
                                 2 => {
                                     // Bass -
+                                    let was_fx = st.fx_mode != "none";
                                     st.bass = (st.bass - 0.5).clamp(-20.0, 30.0);
                                     st.bass = (st.bass * 10.0).round() / 10.0;
                                     st.preset = "özel".into();
@@ -569,11 +592,16 @@ pub fn run_tui() {
                                     pending_save = true;
                                     last_save_time = Instant::now();
                                     if dsp::is_daemon_running() {
-                                        dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        if was_fx {
+                                            dsp::restart_daemon(&st);
+                                        } else {
+                                            dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        }
                                     }
                                 }
                                 3 => {
                                     // Mid -
+                                    let was_fx = st.fx_mode != "none";
                                     st.mid = (st.mid - 0.5).clamp(-18.0, 20.0);
                                     st.mid = (st.mid * 10.0).round() / 10.0;
                                     st.preset = "özel".into();
@@ -581,11 +609,16 @@ pub fn run_tui() {
                                     pending_save = true;
                                     last_save_time = Instant::now();
                                     if dsp::is_daemon_running() {
-                                        dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        if was_fx {
+                                            dsp::restart_daemon(&st);
+                                        } else {
+                                            dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        }
                                     }
                                 }
                                 4 => {
                                     // Treble -
+                                    let was_fx = st.fx_mode != "none";
                                     st.treble = (st.treble - 0.5).clamp(-18.0, 20.0);
                                     st.treble = (st.treble * 10.0).round() / 10.0;
                                     st.preset = "özel".into();
@@ -593,7 +626,11 @@ pub fn run_tui() {
                                     pending_save = true;
                                     last_save_time = Instant::now();
                                     if dsp::is_daemon_running() {
-                                        dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        if was_fx {
+                                            dsp::restart_daemon(&st);
+                                        } else {
+                                            dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        }
                                     }
                                 }
                                 5 => {
@@ -637,6 +674,7 @@ pub fn run_tui() {
                                 9 => {
                                     // Mute toggle
                                     dsp::set_mute(None);
+                                    force_pactl_poll = true;
                                 }
                                 10 => {
                                     // Preset prev
@@ -687,6 +725,7 @@ pub fn run_tui() {
                                 }
                                 2 => {
                                     // Bass +
+                                    let was_fx = st.fx_mode != "none";
                                     st.bass = (st.bass + 0.5).clamp(-20.0, 30.0);
                                     st.bass = (st.bass * 10.0).round() / 10.0;
                                     st.preset = "özel".into();
@@ -694,11 +733,16 @@ pub fn run_tui() {
                                     pending_save = true;
                                     last_save_time = Instant::now();
                                     if dsp::is_daemon_running() {
-                                        dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        if was_fx {
+                                            dsp::restart_daemon(&st);
+                                        } else {
+                                            dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        }
                                     }
                                 }
                                 3 => {
                                     // Mid +
+                                    let was_fx = st.fx_mode != "none";
                                     st.mid = (st.mid + 0.5).clamp(-18.0, 20.0);
                                     st.mid = (st.mid * 10.0).round() / 10.0;
                                     st.preset = "özel".into();
@@ -706,11 +750,16 @@ pub fn run_tui() {
                                     pending_save = true;
                                     last_save_time = Instant::now();
                                     if dsp::is_daemon_running() {
-                                        dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        if was_fx {
+                                            dsp::restart_daemon(&st);
+                                        } else {
+                                            dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        }
                                     }
                                 }
                                 4 => {
                                     // Treble +
+                                    let was_fx = st.fx_mode != "none";
                                     st.treble = (st.treble + 0.5).clamp(-18.0, 20.0);
                                     st.treble = (st.treble * 10.0).round() / 10.0;
                                     st.preset = "özel".into();
@@ -718,7 +767,11 @@ pub fn run_tui() {
                                     pending_save = true;
                                     last_save_time = Instant::now();
                                     if dsp::is_daemon_running() {
-                                        dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        if was_fx {
+                                            dsp::restart_daemon(&st);
+                                        } else {
+                                            dsp::update_live_eq(st.bass, st.mid, st.treble);
+                                        }
                                     }
                                 }
                                 5 => {
@@ -762,6 +815,7 @@ pub fn run_tui() {
                                 9 => {
                                     // Mute toggle
                                     dsp::set_mute(None);
+                                    force_pactl_poll = true;
                                 }
                                 10 => {
                                     // Preset next
@@ -821,6 +875,7 @@ pub fn run_tui() {
                             }
                             9 => {
                                 dsp::set_mute(None);
+                                force_pactl_poll = true;
                             }
                             11 => {
                                 if is_running {
@@ -860,22 +915,16 @@ pub fn run_tui() {
                             status_msg_time = Instant::now();
                         }
                         KeyCode::Char('n') | KeyCode::Char('N') => {
-                            crate::cli::handle_nuke_toggle(&mut st, false);
-                            status_msg = if st.fx_mode == "nuke" {
-                                "💥 Nuke Modu Açıldı!".into()
-                            } else {
-                                "Normal moda dönüldü".into()
-                            };
+                            let (_, _, msg) = crate::cli::toggle_nuke(&mut st, false);
+                            status_msg = msg.into();
                             status_msg_time = Instant::now();
+                            force_pactl_poll = true;
                         }
                         KeyCode::Char('u') | KeyCode::Char('U') => {
-                            crate::cli::handle_nuke_toggle(&mut st, true);
-                            status_msg = if st.fx_mode == "ultra_nuke" {
-                                "💥💥 Ultra Nuke Açıldı!".into()
-                            } else {
-                                "Normal moda dönüldü".into()
-                            };
+                            let (_, _, msg) = crate::cli::toggle_nuke(&mut st, true);
+                            status_msg = msg.into();
                             status_msg_time = Instant::now();
+                            force_pactl_poll = true;
                         }
                         KeyCode::Char('r') | KeyCode::Char('R') => {
                             st = state::reset_state();
@@ -887,6 +936,7 @@ pub fn run_tui() {
                             dsp::apply_gain(100);
                             status_msg = "🔄 Fabrika ayarlarına sıfırlandı".into();
                             status_msg_time = Instant::now();
+                            force_pactl_poll = true;
                         }
                         KeyCode::Char('x') | KeyCode::Char('X') => {
                             let muted = dsp::set_mute(None);
@@ -896,6 +946,7 @@ pub fn run_tui() {
                                 "○ Mikrofon Açıldı".into()
                             };
                             status_msg_time = Instant::now();
+                            force_pactl_poll = true;
                         }
                         KeyCode::Char('l') | KeyCode::Char('L') => {
                             if is_mon {
@@ -920,6 +971,7 @@ pub fn run_tui() {
                                 status_msg = "✗ Varsayılan mikrofon ayarlanamadı".into();
                             }
                             status_msg_time = Instant::now();
+                            force_pactl_poll = true;
                         }
                         KeyCode::Char('t') | KeyCode::Char('T')
                             if !test_recording.load(Ordering::Relaxed) =>
@@ -927,23 +979,24 @@ pub fn run_tui() {
                             test_recording.store(true, Ordering::Relaxed);
                             let flag = Arc::clone(&test_recording);
                             thread::spawn(move || {
-                                let test_wav = "/tmp/micctl_test_sample.wav";
+                                let test_wav = dsp::test_wav_path();
+                                let test_wav_str = test_wav.to_string_lossy().into_owned();
                                 let rec = Command::new("pw-record")
-                                    .args(["--target", "micctl_source", test_wav])
+                                    .args(["--target", "micctl_source", &test_wav_str])
                                     .stdout(Stdio::null())
                                     .stderr(Stdio::null())
                                     .spawn();
                                 thread::sleep(Duration::from_secs(2));
                                 if let Ok(mut p) = rec {
-                                    let _ = p.kill();
-                                    let _ = p.wait();
+                                    dsp::stop_child_gracefully(&mut p);
                                 }
                                 flag.store(false, Ordering::Relaxed);
                                 let _ = Command::new("pw-play")
-                                    .arg(test_wav)
+                                    .arg(&test_wav)
                                     .stdout(Stdio::null())
                                     .stderr(Stdio::null())
                                     .status();
+                                let _ = std::fs::remove_file(&test_wav);
                             });
                             status_msg = "🎙️ 2 sn ses kaydı alınıyor...".into();
                             status_msg_time = Instant::now();
